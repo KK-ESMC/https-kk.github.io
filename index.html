@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天赋能力测试报告</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#348764',
+                        secondary: '#547c6b',
+                        light: '#F2F9F5',
+                        accent: '#86b8a2'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(52,135,100,0.08);
+            }
+            .option-item{
+                @apply border border-green-100 rounded-lg p-4 my-2 cursor-pointer transition-all hover:border-primary hover:bg-green-50;
+            }
+            .option-item.active{
+                @apply bg-primary text-white border-primary;
+            }
+            .print-hide{
+                @media print {
+                    display:none !important;
+                }
+            }
+            .print-only{
+                display:none;
+                @media print {
+                    display:block !important;
+                }
+            }
+        }
+    </style>
+</head>
+<body class="bg-light text-primary font-sans min-h-screen">
+    <div class="max-w-2xl mx-auto px-4 py-10">
+        <!-- 首页介绍 -->
+        <div id="start-page" class="block">
+            <div class="bg-white rounded-2xl p-8 card-shadow relative overflow-hidden">
+                <span class="absolute top-3 right-4 text-5xl opacity-15">🌿</span>
+                <h1 class="text-[clamp(1.8rem,5vw,2.4rem)] font-bold text-center mb-4">天赋能力测试报告</h1>
+                <p class="text-secondary text-center mb-8">本测试共30道选择题，请凭第一直觉选择最符合你的选项。完成后自动生成专属天赋评估报告。</p>
+                <div class="space-y-3 text-sm text-secondary mb-8">
+                    <p><i class="fa fa-info-circle mr-2"></i>作答无需深思，优先选择本能反应</p>
+                    <p><i class="fa fa-clock-o mr-2"></i>预计耗时：8~12分钟</p>
+                    <p><i class="fa fa-file-text-o mr-2"></i>测试结果包含天赋特质、优势短板与成长建议</p>
+                </div>
+                <button onclick="startTest()" class="w-full bg-primary text-white py-4 rounded-xl text-lg hover:bg-secondary transition-all">
+                    🌱 开始测试
+                </button>
+            </div>
+        </div>
+
+        <!-- 测试题目区域 -->
+        <div id="test-page" class="hidden">
+            <div class="bg-white rounded-2xl p-6 md:p-8 card-shadow relative overflow-hidden">
+                <span class="absolute top-3 right-4 text-4xl opacity-15">🍃</span>
+                <div class="flex justify-between items-center mb-6">
+                    <span class="text-sm text-secondary">题目 <span id="current-num">1</span>/30</span>
+                    <div class="w-3/5 h-2 bg-green-50 rounded-full overflow-hidden">
+                        <div id="progress-bar" class="h-full bg-primary transition-all" style="width: 3.33%"></div>
+                    </div>
+                </div>
+                <h2 id="question-title" class="text-lg md:text-xl font-medium min-h-[80px]"></h2>
+                <div id="options-box" class="my-6"></div>
+                <div class="flex gap-3">
+                    <button onclick="prevQuestion()" id="prev-btn" class="flex-1 py-3 rounded-xl border border-green-200 hover:bg-green-50 transition-all print-hide">上一题</button>
+                    <button onclick="nextQuestion()" class="flex-1 bg-primary text-white py-3 rounded-xl hover:bg-secondary transition-all print-hide">下一题</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 报告结果页 -->
+        <div id="report-page" class="hidden">
+            <div class="bg-white rounded-2xl p-6 md:p-8 card-shadow relative overflow-hidden">
+                <span class="absolute top-3 right-4 text-5xl opacity-15">✨</span>
+                <h1 class="text-[clamp(1.5rem,4vw,2rem)] font-bold text-center mb-2">天赋能力测试报告</h1>
+                <p class="text-secondary text-center text-sm mb-8">专属个人天赋特质评估</p>
+
+                <!-- 饼图区域 -->
+                <div class="mb-6">
+                    <h3 class="font-semibold text-lg mb-3">📊 天赋分值分布</h3>
+                    <div class="w-full h-[260px]">
+                        <canvas id="talentChart"></canvas>
+                    </div>
+                    <p id="score-info" class="text-secondary mt-3 text-center"></p>
+                </div>
+
+                <div class="border-l-4 border-primary pl-4 mb-6">
+                    <h3 class="font-semibold text-lg">🧩 核心天赋特质</h3>
+                    <p id="talent-type" class="text-secondary mt-2"></p>
+                </div>
+
+                <div class="border-l-4 border-primary pl-4 mb-6">
+                    <h3 class="font-semibold text-lg">🌿 次要辅助天赋</h3>
+                    <p id="second-talent" class="text-secondary mt-2"></p>
+                </div>
+
+                <div class="mb-6">
+                    <h3 class="font-semibold text-lg mb-2">✅ 个人核心优势</h3>
+                    <div id="advantage-box" class="text-secondary space-y-2"></div>
+                </div>
+                <div class="mb-6">
+                    <h3 class="font-semibold text-lg mb-2">🔍 深层短板解析</h3>
+                    <div id="weak-box" class="text-secondary space-y-2"></div>
+                </div>
+                <div class="mb-6">
+                    <h3 class="font-semibold text-lg mb-2">💡 针对性发展建议</h3>
+                    <div id="suggest-box" class="text-secondary space-y-2"></div>
+                </div>
+                <div class="mb-6">
+                    <h3 class="font-semibold text-lg mb-2">🎯 适配方向与需要规避场景</h3>
+                    <div id="career-box" class="text-secondary space-y-2"></div>
+                </div>
+
+                <div class="mt-8 text-xs text-gray-400 border-t pt-4">
+                    温馨提示：本测试为趣味天赋测评，仅供自我认知参考，不作为职业、升学的唯一评判依据。
+                </div>
+
+                <div class="flex gap-3 mt-6 print-hide">
+                    <button onclick="printReport()" class="flex-1 bg-accent text-white py-3 rounded-xl hover:bg-secondary">🖨️ 打印报告</button>
+                    <button onclick="restartTest()" class="flex-1 bg-primary text-white py-3 rounded-xl hover:bg-secondary">🔁 重新测试</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 30道天赋测试题目，4个选项
+        const questionList = [
+            { q:"1. 在空闲时间，你更愿意？", o:["A.独自看书、思考，沉淀想法","B.找朋友聊天聚会，获取能量","C.动手制作、摆弄实物","D.规划安排接下来的任务"] },
+            { q:"2. 遇到难题时，你第一反应是？", o:["A.静下心分析背后原理","B.与人沟通讨论寻找思路","C.直接动手试错，边做边调","D.梳理步骤，制定解决计划"] },
+            { q:"3. 别人评价你，最可能是？", o:["A.善于洞察，想法深刻","B.善于共情，擅长沟通","C.动手能力强，执行力强","D.条理清晰，做事靠谱"] },
+            { q:"4. 学习新知识，你更喜欢？", o:["A.理解底层逻辑原理","B.听别人讲解、案例分享","C.实操演练，亲身尝试","D.整理框架，分步学习"] },
+            { q:"5. 团队任务中，你倾向担任？", o:["A.思考创意与方向","B.协调成员、沟通对接","C.落地执行，完成具体事务","D.制定时间表、把控进度"] },
+            { q:"6. 面对突发变化，你会？", o:["A.冷静分析变化带来的影响","B.安抚他人情绪，沟通协商","C.快速行动，灵活应变","D.寻找预案，重新规划"] },
+            { q:"7. 记忆信息时，你更擅长？", o:["A.记住概念、理论","B.记住人物对话、情绪","C.记住场景、画面、操作流程","D.记住顺序、清单、数据"] },
+            { q:"8. 做选择时，你优先依靠？", o:["A.理性逻辑推演","B.内心感受与他人感受","C.过往实操经验","D.风险评估与目标匹配"] },
+            { q:"9. 你更容易被哪类内容吸引？", o:["A.哲学、理论、深度科普","B.人物故事、情感叙事","C.手工、实验、实操教程","D.方法论、效率工具"] },
+            { q:"10. 当观点出现分歧，你习惯？", o:["A.辩论逻辑对错","B.顾及对方感受，委婉表达","C.用实际结果证明观点","D.寻找折中方案，达成目标"] },
+            { q:"11. 你的桌面、文件通常？", o:["A.随意，但自己能找到","B.温馨，充满小物件","C.工具随手摆放方便使用","D.分类整齐，标签清晰"] },
+            { q:"12. 完成一件作品，你更看重？", o:["A.创意和思想深度","B.带给他人的感受","C.成品质感、细节做工","D.按时交付，符合要求"] },
+            { q:"13. 长时间工作后，恢复精力的方式？", o:["A.独处，安静思考","B.和朋友倾诉交流","C.运动、动手劳作","D.整理计划，清空待办"] },
+            { q:"14. 对于未来，你更喜欢？", o:["A.畅想多种可能性","B.想象人际与情感场景","C.关注现实可行的落地方式","D.设定目标，一步步达成"] },
+            { q:"15. 别人求助你时，你会优先？", o:["A.分析问题根源","B.倾听情绪，给予安慰","C.直接上手帮忙操作","D.梳理方案，分配任务"] },
+            { q:"16. 你对规则的看法？", o:["A.规则可以被思辨，可质疑","B.规则用来维护人际和谐","C.规则够用就行，灵活变通","D.规则需要严格遵守，保障秩序"] },
+            { q:"17. 欣赏他人，最吸引你的特质？", o:["A.思维深邃，见解独到","B.温暖体贴，善于共情","C.动手实干，踏实落地","D.严谨自律，目标感强"] },
+            { q:"18. 安排一天的生活，你偏好？", o:["A.随性探索，想到什么做什么","B.约见朋友，安排社交活动","C.安排实操、运动类事项","D.详细时间表，按计划推进"] },
+            { q:"19. 做创意类任务，你擅长？", o:["A.提出全新理论和想法","B.构思打动人心的故事","C.把想法做成实物原型","D.把创意拆解成可执行步骤"] },
+            { q:"20. 犯错之后，你第一反应？", o:["A.思考错误背后的逻辑漏洞","B.担心影响他人感受","C.立刻动手补救修正","D.复盘流程避免再次出错"] },
+            { q:"21. 阅读文章，你最关注？", o:["A.论证逻辑是否严谨","B.人物情感与故事细节","C.案例、实际操作方法","D.结论、重点摘要"] },
+            { q:"22. 在会议讨论中，你倾向？", o:["A.提出深度思考的观点","B.观察大家情绪，调和气氛","C.讨论如何落地执行","D.把控议题，按时收尾"] },
+            { q:"23. 你更相信哪一种判断？", o:["A.理论推导结论","B.直觉感受","C.实践得出的结果","D.数据与客观指标"] },
+            { q:"24. 学习遇到枯燥内容，你会？", o:["A.深挖内在原理提升兴趣","B.找人一起学习交流","C.结合实操来理解","D.拆分任务坚持完成"] },
+            { q:"25. 评价项目好坏，你优先看？", o:["A.理念与创新价值","B.用户体验与情感感受","C.成品质量、实操可行性","D.效率、成本、完成度"] },
+            { q:"26. 遇到新环境，你会？", o:["A.观察思考环境底层规则","B.主动认识身边的人","C.尝试动手熟悉环境设施","D.了解环境限制，规划行动"] },
+            { q:"27. 写文字内容，你擅长？", o:["A.思辨、深度论述","B.抒情、故事描写","C.写实，描述真实场景","D.简洁清晰的说明文档"] },
+            { q:"28. 对于承诺，你认为？", o:["A.合理才值得遵守","B.顾及他人感受，尽量兑现","C.尽力做到，不行就及时调整","D.一旦承诺，必须按时完成"] },
+            { q:"29. 压力大的时候，你的表现？", o:["A.独自思考梳理问题","B.找人倾诉释放情绪","C.投入行动缓解焦虑","D.列清单逐个解决问题"] },
+            { q:"30. 你心中理想的工作是？", o:["A.独立思考，研究探索","B.与人沟通，帮助他人","C.动手创造，实践制作","D.流程清晰，目标明确"] }
+        ];
+
+        // 天赋类型计分：A思辨天赋 B人际天赋 C实操天赋 D规划天赋
+        let answers = Array(questionList.length).fill(null);
+        let current = 0;
+        let talentChart = null;
+
+        // 页面切换
+        function startTest(){
+            document.getElementById('start-page').classList.add('hidden');
+            document.getElementById('test-page').classList.remove('hidden');
+            renderQuestion();
+        }
+        function renderQuestion(){
+            const item = questionList[current];
+            document.getElementById('current-num').innerText = current+1;
+            document.getElementById('question-title').innerText = item.q;
+            const box = document.getElementById('options-box');
+            box.innerHTML = "";
+            item.o.forEach((opt,idx)=>{
+                const div = document.createElement("div");
+                div.className = "option-item " + (answers[current] === idx ? 'active' : '');
+                div.innerText = opt;
+                div.onclick = ()=>{
+                    answers[current] = idx;
+                    document.querySelectorAll('.option-item').forEach(d=>d.classList.remove('active'));
+                    div.classList.add('active');
+                }
+                box.appendChild(div);
+            })
+            // 进度条
+            const per = ((current+1)/questionList.length)*100;
+            document.getElementById('progress-bar').style.width = per+"%";
+            document.getElementById('prev-btn').style.display = current===0 ? 'none' : 'block';
+        }
+        function prevQuestion(){
+            if(current>0){
+                current--;
+                renderQuestion();
+            }
+        }
+        function nextQuestion(){
+            if(answers[current] === null){
+                alert("请选择一项答案再继续");
+                return;
+            }
+            if(current < questionList.length-1){
+                current++;
+                renderQuestion();
+            }else{
+                calcResult();
+            }
+        }
+
+        // 打印报告
+        function printReport(){
+            window.print();
+        }
+
+        // 计算结果 & 生成【增强版详细报告】
+        function calcResult(){
+            let scoreA=0,scoreB=0,scoreC=0,scoreD=0;
+            answers.forEach((v)=>{
+                if(v===0) scoreA++;
+                if(v===1) scoreB++;
+                if(v===2) scoreC++;
+                if(v===3) scoreD++;
+            })
+            const scores = [
+                {name:"思辨天赋",s:scoreA,code:"A"},
+                {name:"人际天赋",s:scoreB,code:"B"},
+                {name:"实操天赋",s:scoreC,code:"C"},
+                {name:"规划天赋",s:scoreD,code:"D"},
+            ]
+            scores.sort((a,b)=>b.s - a.s);
+            const top = scores[0];
+            const second = scores[1];
+
+            document.getElementById("score-info").innerText =
+                `思辨天赋：${scoreA}分 | 人际天赋：${scoreB}分 | 实操天赋：${scoreC}分 | 规划天赋：${scoreD}分（满分30分）`;
+            document.getElementById("second-talent").innerText =
+                `${second.name}，作为你的辅助能力，可以和核心天赋组合，形成你的独特能力组合。`;
+
+            // 绘制饼图
+            const ctx = document.getElementById('talentChart').getContext('2d');
+            if(talentChart){
+                talentChart.destroy();
+            }
+            talentChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ["思辨天赋","人际天赋","实操天赋","规划天赋"],
+                    datasets: [{
+                        data: [scoreA,scoreB,scoreC,scoreD],
+                        backgroundColor: [
+                            "#71b89b",
+                            "#96ccb2",
+                            "#b8e0cd",
+                            "#d8eee4"
+                        ],
+                        borderColor:"#fff",
+                        borderWidth:2
+                    }]
+                },
+                options:{
+                    responsive:true,
+                    maintainAspectRatio:false,
+                    plugins:{
+                        legend:{
+                            position:"bottom"
+                        }
+                    }
+                }
+            });
+
+            // 报告文本库【扩充详细版本】
+            let talentText,advText,weakText,sugText,careerText;
+            if(top.code === "A"){
+                talentText = "思辨洞察型天赋。你的大脑天生擅长抽象推理、挖掘底层逻辑，习惯从全局本质看待事物。你偏爱独立思考，能快速捕捉别人忽略的内在规律，擅长提出新颖、深刻的观点。你在分析复杂问题、拆解概念、理论学习上具备天然优势，属于思想驱动型人格。";
+                advText = [
+                    "• 善于透过表象抓住事物本质，不容易被表面信息误导",
+                    "• 独立思辨能力强，拥有自己的判断，不易被舆论裹挟",
+                    "• 对抽象概念、理论知识理解更快，擅长深度学习",
+                    "• 具备批判性思维，能够发现逻辑漏洞与潜在隐患",
+                    "• 想象力丰富，能够在脑海推演多种可能性方案"
+                ];
+                weakText = [
+                    "• 容易陷入过度思考，反复推演，迟迟无法落地行动，造成空想拖延",
+                    "• 思考优先于感受，容易忽略他人情绪，沟通时显得理性冰冷",
+                    "• 对于机械重复、程序化、细节琐碎的事务极易感到枯燥乏味",
+                    "• 追求逻辑完美，容易苛责他人想法不够严谨，引发人际摩擦",
+                    "• 喜欢在脑中构思方案，但缺少持续执行、动手试错的耐心"
+                ];
+                sugText = [
+                    "• 为想法设置截止时间，限制无限思考，强制进入小步实践，避免只想不做",
+                    "• 沟通练习：先共情感受，再阐述逻辑，平衡理性与表达温度",
+                    "• 搭配实操类任务训练，把理论想法转化为可落地的小成果",
+                    "• 学会接受“不完美方案”，现实不需要100%逻辑自洽才可以开始",
+                    "• 可以利用你的思辨天赋做深度研究，同时借助辅助天赋补齐执行短板"
+                ];
+                careerText = [
+                    "✅ 适配方向：数据分析、策划、文案创作、理论研究、战略思考、内容评论、产品逻辑设计",
+                    "⚠️ 需要规避：长期纯重复流水线工作、大量高频情绪消耗的接待岗位、完全不需要思考的机械事务"
+                ];
+            }else if(top.code === "B"){
+                talentText = "人际共情型天赋。你天生拥有敏锐的情绪感知力，能快速捕捉他人的情绪、需求与氛围变化。你善于倾听，能够换位思考，很容易获得他人信任。你在沟通协调、共情理解、化解冲突方面具备天然优势，属于人际驱动型人格。";
+                advText = [
+                    "• 共情感知力强，能敏锐察觉别人没有说出的潜在需求",
+                    "• 善于倾听，亲和力强，容易建立信任关系",
+                    "• 擅长团队调和，缓和矛盾，维护团队氛围稳定",
+                    "• 表达柔和，擅长用他人容易接受的方式传递信息",
+                    "• 对人的故事、情感变化记忆深刻，擅长换位思考"
+                ];
+                weakText = [
+                    "• 容易吸收他人负面情绪，造成持续性情绪内耗，身心疲惫",
+                    "• 做重大决策容易被人情、感受干扰，难以客观理性取舍",
+                    "• 害怕冲突，为维持和谐习惯委屈自己，不擅长拒绝别人",
+                    "• 长时间独自工作缺少外部交流时，容易感到空虚、动力下降",
+                    "• 有时优先顾及感受，忽略目标、规则与客观事实"
+                ];
+                sugText = [
+                    "• 建立清晰情绪边界，学会温和拒绝，区分别人情绪和自己的责任",
+                    "• 重要决策分开两步：先感受共情，再单独理性评估利弊得失",
+                    "• 刻意安排独立工作练习，训练不靠外部反馈完成任务",
+                    "• 区分“维持关系”和“坚持原则”，不必为和谐牺牲目标底线",
+                    "• 发挥共情优势的同时，搭配规划或思辨能力提升决策质量"
+                ];
+                careerText = [
+                    "✅ 适配方向：心理咨询、教育、人力资源、客户运营、品牌公关、社群运营、调解、采访",
+                    "⚠️ 需要规避：长期孤立独自研究岗位、零沟通纯机械任务、充满持续激烈对抗的高压环境"
+                ];
+            }else if(top.code === "C"){
+                talentText = "实操创造型天赋。你的天赋体现在动手实践，你相信实践出真知，比起理论空谈，更愿意亲身尝试。你擅长从真实体验、动手试错中学习，落地能力强，属于行动驱动型人格。";
+                advText = [
+                    "• 动手执行能力强，遇到问题倾向直接尝试，快速试错调整",
+                    "• 注重实物成果，关注细节质感，擅长打磨看得见的作品",
+                    "• 环境适应力强，突发状况下能就地寻找办法解决问题",
+                    "• 从实践中学习效率很高，看过不如上手操作一遍",
+                    "• 踏实务实，重视真实结果，不喜欢空洞的理论讨论"
+                ];
+                weakText = [
+                    "• 对抽象、长篇理论学习兴趣低，阅读复杂文字容易疲惫",
+                    "• 做事偏向着眼当下，缺少长远预判，容易忽略长期风险",
+                    "• 做完事情不擅长复盘总结，重复踩同类问题",
+                    "• 习惯埋头做事，容易忽略沟通汇报，别人看不到你的成果",
+                    "• 讨厌繁琐前置规划，容易在前期准备不足就仓促动手"
+                ];
+                sugText = [
+                    "• 学习时搭配精简理论框架，用理论指导实践，减少无效试错",
+                    "• 养成简短前置规划习惯，行动前简单明确目标与边界",
+                    "• 每次项目结束用3分钟复盘，记录经验，沉淀方法",
+                    "• 定期主动同步进展，让他人了解你的工作成果",
+                    "• 利用动手天赋产出作品，搭配思辨天赋完善底层逻辑"
+                ];
+                careerText = [
+                    "✅ 适配方向：设计、工程、手工制作、实验、技术运维、拍摄剪辑、现场执行、工艺创作",
+                    "⚠️ 需要规避：长年纯理论研究、大量抽象文字撰写，缺少落地机会的岗位"
+                ];
+            }else{
+                talentText = "规划统筹型天赋。你天生目标感强，擅长拆解任务、搭建流程、管控时间与进度。你重视秩序、承诺与风险控制，做事稳定可靠，擅长把复杂事务梳理成有序步骤，属于目标驱动型人格。";
+                advText = [
+                    "• 目标导向，擅长拆解大目标为阶段性任务，时间管理能力突出",
+                    "• 严谨负责，信守承诺，交付稳定，是团队值得信赖的角色",
+                    "• 擅长梳理流程、建立规则，提前识别潜在风险",
+                    "• 条理清晰，擅长整理信息、清单、文档，减少混乱",
+                    "• 自律稳定，能够坚持长期任务，不容易半途而废"
+                ];
+                weakText = [
+                    "• 对计划被打乱容忍度低，突发变动极易引发焦虑不安",
+                    "• 过度依赖流程规则，缺少即兴、发散的创意能力",
+                    "• 过于看重效率，有时忽略人的情绪感受，显得刻板",
+                    "• 喜欢确定性，面对没有明确目标的自由探索任务动力不足",
+                    "• 容易花费过多时间完善计划，迟迟不肯启动执行"
+                ];
+                sugText = [
+                    "• 练习弹性规划，预留冗余空间，接受计划可以动态调整",
+                    "• 每周安排无目标创意练习，训练发散思考，跳出固定框架",
+                    "• 在流程之外，主动观察身边人的情绪，兼顾人情与目标",
+                    "• 区分「准备完善」和「可以开始」，不要无限期打磨计划",
+                    "• 发挥统筹优势，搭配人际或实操天赋，增强灵活应变能力"
+                ];
+                careerText = [
+                    "✅ 适配方向：项目管理、行政管理、财务、运营统筹、供应链、活动策划、档案管理",
+                    "⚠️ 需要规避：完全无规则、极度多变、没有明确目标的长期工作环境"
+                ];
+            }
+
+            // 填充页面
+            document.getElementById('talent-type').innerText = talentText;
+            document.getElementById('advantage-box').innerHTML = advText.map(i=>`<p>${i}</p>`).join("");
+            document.getElementById('weak-box').innerHTML = weakText.map(i=>`<p>${i}</p>`).join("");
+            document.getElementById('suggest-box').innerHTML = sugText.map(i=>`<p>${i}</p>`).join("");
+            document.getElementById('career-box').innerHTML = careerText.map(i=>`<p>${i}</p>`).join("");
+
+            // 切换到报告页
+            document.getElementById('test-page').classList.add('hidden');
+            document.getElementById('report-page').classList.remove('hidden');
+        }
+
+        function restartTest(){
+            answers = Array(questionList.length).fill(null);
+            current = 0;
+            if(talentChart){
+                talentChart.destroy();
+            }
+            document.getElementById('report-page').classList.add('hidden');
+            document.getElementById('start-page').classList.remove('hidden');
+            document.getElementById('start-page').classList.add('block');
+        }
+    </script>
+</body>
+</html>
